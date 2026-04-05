@@ -1,0 +1,25 @@
+# Byte-compiled / cached files
+*.pyc
+__pycache__/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor directories
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Logs
+*.log
+
+# Node (if added later)
+node_modules/
+npm-debug.log*
+
+# Env files
+.env
+.env.local

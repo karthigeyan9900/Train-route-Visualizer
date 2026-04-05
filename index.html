@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Vande Bharat Route Explorer</title>
+<meta name="description" content="Interactive visualization of Vande Bharat Express train routes across India"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d1a;--bg2:#12122a;--card:rgba(255,255,255,0.05);--card-h:rgba(255,255,255,0.09);
+  --border:rgba(255,255,255,0.08);--t1:#f0f0ff;--t2:#8888aa;--t3:#444466;
+  --north:#6366F1;--west:#F59E0B;--south:#10B981;--east:#F43F5E;--central:#A855F7;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);display:flex;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+#sidebar{width:330px;min-width:330px;background:linear-gradient(180deg,#0d0d1a,#12122a);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;z-index:100}
+#sb-head{padding:18px 14px 14px;border-bottom:1px solid var(--border);background:rgba(99,102,241,.08)}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#6366F1,#8B5CF6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo h1{font-size:14px;font-weight:700;letter-spacing:.02em}
+.logo p{font-size:11px;color:var(--t2)}
+#search-wrap{position:relative}
+#search-wrap input{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:10px;padding:9px 12px 9px 34px;color:var(--t1);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color .2s}
+#search-wrap input:focus{border-color:rgba(99,102,241,.5);background:rgba(99,102,241,.06)}
+#search-wrap input::placeholder{color:var(--t3)}
+.si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:13px}
+
+/* Region filters */
+#filters{display:flex;gap:5px;padding:10px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.chip{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .2s;background:rgba(255,255,255,.05);color:var(--t2)}
+.chip:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.chip.active[data-r="All"]{background:rgba(99,102,241,.25);color:#A5B4FC;border-color:rgba(99,102,241,.4)}
+.chip.active[data-r="North"]{background:rgba(99,102,241,.25);color:#A5B4FC;border-color:rgba(99,102,241,.4)}
+.chip.active[data-r="West"]{background:rgba(245,158,11,.25);color:#FCD34D;border-color:rgba(245,158,11,.4)}
+.chip.active[data-r="South"]{background:rgba(16,185,129,.25);color:#6EE7B7;border-color:rgba(16,185,129,.4)}
+.chip.active[data-r="East"]{background:rgba(244,63,94,.25);color:#FDA4AF;border-color:rgba(244,63,94,.4)}
+.chip.active[data-r="Central"]{background:rgba(168,85,247,.25);color:#D8B4FE;border-color:rgba(168,85,247,.4)}
+
+#sb-stats{display:flex;gap:16px;padding:8px 14px;border-bottom:1px solid var(--border)}
+.stat{font-size:11px;color:var(--t3)}.stat span{color:var(--t1);font-weight:600}
+
+/* Train list */
+#train-list{flex:1;overflow-y:auto;padding:8px 8px}
+#train-list::-webkit-scrollbar{width:3px}
+#train-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+.tc{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:5px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;border-left:3px solid transparent}
+.tc:hover{background:var(--card-h);transform:translateX(2px)}
+.tc.sel{background:rgba(99,102,241,.1)}
+.tc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
+.tc-name{font-size:12px;font-weight:600;flex:1;margin-right:6px;line-height:1.3;text-transform:capitalize}
+.tc-no{font-size:11px;color:var(--t3);white-space:nowrap}
+.tc-route{display:flex;align-items:center;gap:5px;font-size:11px}
+.tc-st{color:var(--t2);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:105px}
+.tc-arr{color:var(--t3);font-size:10px;flex-shrink:0}
+.tc-meta{display:flex;gap:8px;margin-top:5px;align-items:center}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.tc-dist{font-size:10px;color:var(--t3)}
+.no-res{text-align:center;padding:40px;color:var(--t3);font-size:13px}
+
+/* MAP */
+#map-wrap{flex:1;position:relative}
+#map{width:100%;height:100%}
+
+/* Legend */
+#legend{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(13,13,26,.92);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:30px;padding:7px 16px;display:flex;align-items:center;gap:14px;z-index:1000;pointer-events:none}
+.li{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2)}
+.ll{width:18px;height:2px;border-radius:2px}
+
+/* Counter */
+#counter{position:absolute;top:14px;right:14px;background:rgba(13,13,26,.92);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:12px;padding:10px 14px;z-index:1000;text-align:center}
+#counter .n{font-size:22px;font-weight:800}
+#counter .l{font-size:10px;color:var(--t3)}
+
+/* Info panel */
+#info{position:absolute;bottom:18px;right:18px;width:290px;background:rgba(13,13,26,.96);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:16px;padding:16px;z-index:1000;transform:translateY(130%);transition:transform .35s cubic-bezier(.34,1.56,.64,1);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#info.show{transform:translateY(0)}
+.ih{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.iname{font-size:14px;font-weight:700;line-height:1.3;text-transform:capitalize}
+.ino{font-size:11px;color:var(--t3);margin-top:2px}
+.xbtn{width:24px;height:24px;border-radius:6px;background:rgba(255,255,255,.08);border:none;cursor:pointer;color:var(--t2);font-size:14px;display:flex;align-items:center;justify-content:center}
+.xbtn:hover{background:rgba(255,255,255,.15)}
+.iroute{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.istation{flex:1}
+.isn{font-size:12px;font-weight:600}
+.ist{font-size:11px;color:var(--t3);margin-top:1px}
+.idiv{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
+.idiv-line{width:36px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent)}
+.istats{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.isc{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:9px 11px}
+.isl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.isv{font-size:13px;font-weight:700}
+
+.leaflet-container{background:#0d0d1a}
+.leaflet-popup-content-wrapper{background:rgba(13,13,26,.96)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:12px!important;color:#f0f0ff!important;backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.4)!important}
+.leaflet-popup-tip{background:rgba(13,13,26,.96)!important}
+.leaflet-popup-close-button{color:#8888aa!important}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div id="sb-head">
+    <div class="logo">
+      <div class="logo-icon">🚄</div>
+      <div><h1>Vande Bharat Explorer</h1><p>Interactive Route Map · India</p></div>
+    </div>
+    <div id="search-wrap">
+      <span class="si">🔍</span>
+      <input id="q" type="text" placeholder="Search train or station…"/>
+    </div>
+  </div>
+  <div id="filters">
+    <div class="chip active" data-r="All">All</div>
+    <div class="chip" data-r="North">North</div>
+    <div class="chip" data-r="West">West</div>
+    <div class="chip" data-r="South">South</div>
+    <div class="chip" data-r="East">East</div>
+    <div class="chip" data-r="Central">Central</div>
+  </div>
+  <div id="sb-stats">
+    <div class="stat">Showing <span id="vc">50</span> routes</div>
+    <div class="stat">Avg <span>594</span> km</div>
+  </div>
+  <div id="train-list"></div>
+</div>
+
+<div id="map-wrap">
+  <div id="map"></div>
+  <div id="legend">
+    <div class="li"><div class="ll" style="background:var(--north)"></div>North</div>
+    <div class="li"><div class="ll" style="background:var(--west)"></div>West</div>
+    <div class="li"><div class="ll" style="background:var(--south)"></div>South</div>
+    <div class="li"><div class="ll" style="background:var(--east)"></div>East</div>
+    <div class="li"><div class="ll" style="background:var(--central)"></div>Central</div>
+  </div>
+  <div id="counter"><div class="n" id="cn">50</div><div class="l">Routes</div></div>
+  <div id="info">
+    <div class="ih">
+      <div><div class="iname" id="i-name"></div><div class="ino" id="i-no"></div></div>
+      <button class="xbtn" id="xbtn">✕</button>
+    </div>
+    <div class="iroute">
+      <div class="istation"><div class="isn" id="i-fs"></div><div class="ist" id="i-fd"></div></div>
+      <div class="idiv"><div class="idiv-line"></div><span style="font-size:13px">🚄</span><div class="idiv-line"></div></div>
+      <div class="istation" style="text-align:right"><div class="isn" id="i-ts"></div><div class="ist" id="i-td"></div></div>
+    </div>
+    <div class="istats">
+      <div class="isc"><div class="isl">Distance</div><div class="isv" id="i-dist"></div></div>
+      <div class="isc"><div class="isl">Duration</div><div class="isv" id="i-dur"></div></div>
+      <div class="isc"><div class="isl">Region</div><div class="isv" id="i-reg"></div></div>
+      <div class="isc"><div class="isl">Train No.</div><div class="isv" id="i-tn"></div></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
