@@ -1,15 +1,15 @@
-# Vande Bharat Route Explorer 🚄
+# Vande Bharat Route Explorer
 
 An interactive visual map of all **Vande Bharat Express** train routes across India — built with **Leaflet.js + OpenStreetMap**. No backend, no framework, pure HTML/CSS/JS.
 
 ## Features
 
-- 🗺️ Dark-themed interactive map with **50 routes** drawn as smooth curved arcs
-- 🎨 Color-coded by region: North · West · South · East · Central
-- 🔍 Live search by train name, number, or station
-- 🏷️ Region filter chips (All / North / West / South / East / Central)
-- 🖱️ Click any route or sidebar card to highlight it and zoom in
-- ℹ️ Info panel showing distance, duration, and schedule on selection
+- Dark-themed interactive map with **50 routes** drawn as smooth curved arcs
+- Color-coded by region: North · West · South · East · Central
+- Live search by train name, number, or station
+- Region filter chips (All / North / West / South / East / Central)
+- Click any route or sidebar card to highlight it and zoom in
+- Info panel showing distance, duration, and schedule on selection
 
 ## How to Run
 
@@ -39,6 +39,6 @@ git clone <repo-url>
 
 ## Roadmap
 
-- **V1** ✅ — Start/end stations, region filters, search, info panel
+- **V1** — Start/end stations, region filters, search, info panel
 - **V1.5** — Intermediate stations along each route
 - **V2** — Schedule view, distance heatmap, journey time analytics
