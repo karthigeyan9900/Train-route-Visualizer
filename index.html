@@ -94,6 +94,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);display
 .isl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
 .isv{font-size:13px;font-weight:700}
 
+/* Stops list */
+#stops-section{margin-top:10px;border-top:1px solid var(--border);padding-top:10px}
+.stops-heading{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px;font-weight:600}
+#stops-list{max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:5px}
+#stops-list::-webkit-scrollbar{width:3px}
+#stops-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+.stop-row{display:flex;align-items:center;gap:8px}
+.stop-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.stop-info{flex:1;min-width:0}
+.stop-name{font-size:11px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stop-time{font-size:10px;color:var(--t3);margin-top:1px}
 .leaflet-container{background:#0d0d1a}
 .leaflet-popup-content-wrapper{background:rgba(13,13,26,.96)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:12px!important;color:#f0f0ff!important;backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.4)!important}
 .leaflet-popup-tip{background:rgba(13,13,26,.96)!important}
@@ -148,11 +159,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);display
       <div class="idiv"><div class="idiv-line"></div><span style="font-size:13px">🚄</span><div class="idiv-line"></div></div>
       <div class="istation" style="text-align:right"><div class="isn" id="i-ts"></div><div class="ist" id="i-td"></div></div>
     </div>
-    <div class="istats">
+      <div class="istats" style="margin-bottom:0">
       <div class="isc"><div class="isl">Distance</div><div class="isv" id="i-dist"></div></div>
       <div class="isc"><div class="isl">Duration</div><div class="isv" id="i-dur"></div></div>
       <div class="isc"><div class="isl">Region</div><div class="isv" id="i-reg"></div></div>
       <div class="isc"><div class="isl">Train No.</div><div class="isv" id="i-tn"></div></div>
+    </div>
+    <div id="stops-section" style="display:none">
+      <div class="stops-heading" id="stops-count">Stops</div>
+      <div id="stops-list"></div>
     </div>
   </div>
 </div>
