@@ -10,9 +10,12 @@ L.control.zoom({ position: 'bottomright' }).addTo(map);
 
 // ===== STATE =====
 let activeRegion = 'All';
-let selectedIdx = null;
-let routeLayers = [];   // { line, fromMarker, toMarker, idx }
+let selectedIdx  = null;
+let routeLayers  = [];
+let stopLayers   = [];
 let visibleIndices = [];
+
+const layerGroup = L.layerGroup().addTo(map);
 
 // ===== HELPERS =====
 function arc(a, b, n = 60, curve = 0.22) {
@@ -36,20 +39,48 @@ function duration(dep, arr) {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
-function makeMarker(latlng, color, label) {
+function makeEndMarker(latlng, color, label) {
   return L.circleMarker(latlng, {
     radius: 5, color: '#fff', weight: 1.5,
-    fillColor: color, fillOpacity: 1,
-    zIndexOffset: 100
+    fillColor: color, fillOpacity: 1, zIndexOffset: 100
   }).bindTooltip(`<b>${label}</b>`, { direction: 'top', offset: [0, -6] });
 }
 
-// ===== BUILD ROUTES =====
-const layerGroup = L.layerGroup().addTo(map);
+function makeStopMarker(latlng, color, stop) {
+  return L.circleMarker(latlng, {
+    radius: 4, color: color, weight: 1.5,
+    fillColor: color, fillOpacity: 0.65, zIndexOffset: 80
+  }).bindTooltip(
+    `<b>${stop.name}</b><br>Arr: ${stop.arr} &nbsp;·&nbsp; Dep: ${stop.dep}`,
+    { direction: 'top', offset: [0, -5] }
+  );
+}
 
+// ===== CLEAR STOP MARKERS =====
+function clearStopLayers() {
+  stopLayers.forEach(l => layerGroup.removeLayer(l));
+  stopLayers = [];
+}
+
+// ===== DRAW STOP MARKERS =====
+function drawStopMarkers(train) {
+  clearStopLayers();
+  if (!train.stops || !train.stops.length) return;
+  const color = regionColors[train.region];
+  train.stops.forEach(stop => {
+    const coords = stationCoords[stop.name];
+    if (!coords) return;
+    const m = makeStopMarker(coords, color, stop);
+    layerGroup.addLayer(m);
+    stopLayers.push(m);
+  });
+}
+
+// ===== BUILD ROUTE LAYERS =====
 function buildLayers(indices) {
   layerGroup.clearLayers();
   routeLayers = [];
+  stopLayers  = [];
 
   indices.forEach(idx => {
     const t = trains[idx];
@@ -57,38 +88,34 @@ function buildLayers(indices) {
     const tc = stationCoords[t.to];
     if (!fc || !tc) return;
 
-    const color = regionColors[t.region];
-    const isSelected = (idx === selectedIdx);
+    const color    = regionColors[t.region];
+    const isSel    = (idx === selectedIdx);
+    const weight   = isSel ? 3.5 : 1.8;
+    const opacity  = isSel ? 1   : 0.4;
 
-    const line = L.polyline(arc(fc, tc), {
-      color, weight: isSelected ? 3.5 : 1.8,
-      opacity: isSelected ? 1 : 0.45,
-      smoothFactor: 1
-    });
-
-    const fm = makeMarker(fc, color, t.from);
-    const tm = makeMarker(tc, color, t.to);
+    const line = L.polyline(arc(fc, tc), { color, weight, opacity, smoothFactor: 1 });
+    const fm   = makeEndMarker(fc, color, t.from);
+    const tm   = makeEndMarker(tc, color, t.to);
 
     line.on('click', () => selectTrain(idx));
-    fm.on('click', () => selectTrain(idx));
-    tm.on('click', () => selectTrain(idx));
-
-    line.on('mouseover', function() {
-      if (idx !== selectedIdx) this.setStyle({ weight: 2.8, opacity: 0.85 });
-    });
-    line.on('mouseout', function() {
-      if (idx !== selectedIdx) this.setStyle({ weight: 1.8, opacity: 0.45 });
-    });
+    fm.on('click',   () => selectTrain(idx));
+    tm.on('click',   () => selectTrain(idx));
+    line.on('mouseover', function() { if (idx !== selectedIdx) this.setStyle({ weight: 2.8, opacity: 0.8 }); });
+    line.on('mouseout',  function() { if (idx !== selectedIdx) this.setStyle({ weight: 1.8, opacity: 0.4 }); });
 
     layerGroup.addLayer(line);
     layerGroup.addLayer(fm);
     layerGroup.addLayer(tm);
-
     routeLayers.push({ line, fm, tm, idx });
   });
+
+  // Re-draw stop markers for selected train on top
+  if (selectedIdx !== null && indices.includes(selectedIdx)) {
+    drawStopMarkers(trains[selectedIdx]);
+  }
 }
 
-// ===== SIDEBAR RENDER =====
+// ===== SIDEBAR =====
 const listEl = document.getElementById('train-list');
 const vcEl   = document.getElementById('vc');
 const cnEl   = document.getElementById('cn');
@@ -105,9 +132,9 @@ function renderList(indices) {
   listEl.innerHTML = indices.map(idx => {
     const t = trains[idx];
     const color = regionColors[t.region];
-    const isSel = idx === selectedIdx;
+    const stopCount = (t.stops || []).length;
     return `
-      <div class="tc ${isSel ? 'sel' : ''}" data-idx="${idx}"
+      <div class="tc ${idx === selectedIdx ? 'sel' : ''}" data-idx="${idx}"
            style="border-left-color:${color}">
         <div class="tc-top">
           <div class="tc-name">${t.name}</div>
@@ -120,43 +147,18 @@ function renderList(indices) {
         </div>
         <div class="tc-meta">
           <div class="dot" style="background:${color}"></div>
-          <span class="tc-dist">${t.region} · ${t.dist} km · ${duration(t.dep, t.arr)}</span>
+          <span class="tc-dist">${t.region} · ${t.dist} km · ${duration(t.dep, t.arr)}${stopCount ? ' · '+stopCount+' stops' : ''}</span>
         </div>
       </div>`;
   }).join('');
 
-  // attach click
   listEl.querySelectorAll('.tc').forEach(el => {
     el.addEventListener('click', () => selectTrain(+el.dataset.idx));
   });
 }
 
-// ===== SELECT =====
-function selectTrain(idx) {
-  if (selectedIdx === idx) {
-    // deselect
-    selectedIdx = null;
-    document.getElementById('info').classList.remove('show');
-    refresh();
-    return;
-  }
-  selectedIdx = idx;
-  refresh();
-
-  // scroll card into view
-  const card = listEl.querySelector(`[data-idx="${idx}"]`);
-  if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-
-  // zoom to route
-  const t = trains[idx];
-  const fc = stationCoords[t.from];
-  const tc = stationCoords[t.to];
-  if (fc && tc) {
-    const bounds = L.latLngBounds([fc, tc]).pad(0.25);
-    map.fitBounds(bounds, { animate: true, duration: 0.6 });
-  }
-
-  // fill info panel
+// ===== INFO PANEL =====
+function fillInfoPanel(t) {
   document.getElementById('i-name').textContent = t.name;
   document.getElementById('i-no').textContent   = `Train #${t.no}`;
   document.getElementById('i-fs').textContent   = t.from;
@@ -167,7 +169,51 @@ function selectTrain(idx) {
   document.getElementById('i-dur').textContent  = duration(t.dep, t.arr);
   document.getElementById('i-reg').textContent  = t.region;
   document.getElementById('i-tn').textContent   = t.no;
+
+  // Stops list
+  const stopsSection = document.getElementById('stops-section');
+  const stopsList    = document.getElementById('stops-list');
+  const color        = regionColors[t.region];
+
+  if (t.stops && t.stops.length) {
+    stopsSection.style.display = 'block';
+    document.getElementById('stops-count').textContent = `Stops (${t.stops.length})`;
+    stopsList.innerHTML = t.stops.map(s => `
+      <div class="stop-row">
+        <div class="stop-dot" style="background:${color}"></div>
+        <div class="stop-info">
+          <div class="stop-name">${s.name}</div>
+          <div class="stop-time">${s.arr} → ${s.dep}</div>
+        </div>
+      </div>`).join('');
+  } else {
+    stopsSection.style.display = 'none';
+  }
+
   document.getElementById('info').classList.add('show');
+}
+
+// ===== SELECT =====
+function selectTrain(idx) {
+  if (selectedIdx === idx) {
+    selectedIdx = null;
+    document.getElementById('info').classList.remove('show');
+    clearStopLayers();
+    refresh();
+    return;
+  }
+  selectedIdx = idx;
+  refresh();
+
+  const card = listEl.querySelector(`[data-idx="${idx}"]`);
+  if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+  const t  = trains[idx];
+  const fc = stationCoords[t.from];
+  const tc = stationCoords[t.to];
+  if (fc && tc) map.fitBounds(L.latLngBounds([fc, tc]).pad(0.25), { animate: true, duration: 0.6 });
+
+  fillInfoPanel(t);
 }
 
 // ===== FILTER =====
@@ -175,10 +221,11 @@ function getFiltered(query, region) {
   const q = query.toLowerCase();
   return trains.reduce((acc, t, i) => {
     const matchR = region === 'All' || t.region === region;
-    const matchQ = !q || t.name.toLowerCase().includes(q)
-                       || t.no.includes(q)
-                       || t.from.toLowerCase().includes(q)
-                       || t.to.toLowerCase().includes(q);
+    const matchQ = !q ||
+      t.name.toLowerCase().includes(q) ||
+      t.no.includes(q) ||
+      t.from.toLowerCase().includes(q) ||
+      t.to.toLowerCase().includes(q);
     if (matchR && matchQ) acc.push(i);
     return acc;
   }, []);
@@ -194,6 +241,7 @@ function refresh() {
 document.getElementById('q').addEventListener('input', () => {
   selectedIdx = null;
   document.getElementById('info').classList.remove('show');
+  clearStopLayers();
   refresh();
 });
 
@@ -202,8 +250,9 @@ document.querySelectorAll('.chip').forEach(chip => {
     document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
     chip.classList.add('active');
     activeRegion = chip.dataset.r;
-    selectedIdx = null;
+    selectedIdx  = null;
     document.getElementById('info').classList.remove('show');
+    clearStopLayers();
     refresh();
   });
 });
@@ -211,6 +260,7 @@ document.querySelectorAll('.chip').forEach(chip => {
 document.getElementById('xbtn').addEventListener('click', () => {
   selectedIdx = null;
   document.getElementById('info').classList.remove('show');
+  clearStopLayers();
   refresh();
 });
 
