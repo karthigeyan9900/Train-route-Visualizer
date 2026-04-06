@@ -93,23 +93,16 @@ function buildLayers(indices) {
 
     let line;
 
-    if (isSel && t.stops && t.stops.length) {
-      // Build waypoint path through all stops
+    if (t.stops && t.stops.length) {
       const waypoints = [fc];
-      t.stops.forEach(s => {
-        const c = stationCoords[s.name];
-        if (c) waypoints.push(c);
-      });
+      t.stops.forEach(s => { const c = stationCoords[s.name]; if (c) waypoints.push(c); });
       waypoints.push(tc);
       line = L.polyline(waypoints, {
-        color, weight: 3.5, opacity: 1, dashArray: '6, 3', smoothFactor: 1
+        color, weight: isSel ? 3.5 : 1.8, opacity: isSel ? 1 : 0.4, smoothFactor: 1
       });
     } else {
       line = L.polyline(arc(fc, tc), {
-        color,
-        weight:  isSel ? 3.5 : 1.8,
-        opacity: isSel ? 1   : 0.4,
-        smoothFactor: 1
+        color, weight: isSel ? 3.5 : 1.8, opacity: isSel ? 1 : 0.4, smoothFactor: 1
       });
     }
 
