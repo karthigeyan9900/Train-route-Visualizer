@@ -1,6 +1,6 @@
 # Vande Bharat Route Explorer 🚄
 
-An interactive visual map of all **Vande Bharat Express** train routes across India — built with **Leaflet.js + OpenStreetMap**. No backend, no framework, pure HTML/CSS/JS.
+An interactive visual map of all **Vande Bharat Express** train routes across India built with **Leaflet.js + OpenStreetMap**. No backend, no framework, pure HTML/CSS/JS.
 
 ## Features
 
