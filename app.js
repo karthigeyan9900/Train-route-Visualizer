@@ -88,14 +88,33 @@ function buildLayers(indices) {
     const tc = stationCoords[t.to];
     if (!fc || !tc) return;
 
-    const color    = regionColors[t.region];
-    const isSel    = (idx === selectedIdx);
-    const weight   = isSel ? 3.5 : 1.8;
-    const opacity  = isSel ? 1   : 0.4;
+    const color = regionColors[t.region];
+    const isSel = (idx === selectedIdx);
 
-    const line = L.polyline(arc(fc, tc), { color, weight, opacity, smoothFactor: 1 });
-    const fm   = makeEndMarker(fc, color, t.from);
-    const tm   = makeEndMarker(tc, color, t.to);
+    let line;
+
+    if (isSel && t.stops && t.stops.length) {
+      // Build waypoint path through all stops
+      const waypoints = [fc];
+      t.stops.forEach(s => {
+        const c = stationCoords[s.name];
+        if (c) waypoints.push(c);
+      });
+      waypoints.push(tc);
+      line = L.polyline(waypoints, {
+        color, weight: 3.5, opacity: 1, dashArray: '6, 3', smoothFactor: 1
+      });
+    } else {
+      line = L.polyline(arc(fc, tc), {
+        color,
+        weight:  isSel ? 3.5 : 1.8,
+        opacity: isSel ? 1   : 0.4,
+        smoothFactor: 1
+      });
+    }
+
+    const fm = makeEndMarker(fc, color, t.from);
+    const tm = makeEndMarker(tc, color, t.to);
 
     line.on('click', () => selectTrain(idx));
     fm.on('click',   () => selectTrain(idx));
@@ -109,11 +128,12 @@ function buildLayers(indices) {
     routeLayers.push({ line, fm, tm, idx });
   });
 
-  // Re-draw stop markers for selected train on top
+  // Draw stop markers on top for selected train
   if (selectedIdx !== null && indices.includes(selectedIdx)) {
     drawStopMarkers(trains[selectedIdx]);
   }
 }
+
 
 // ===== SIDEBAR =====
 const listEl = document.getElementById('train-list');
